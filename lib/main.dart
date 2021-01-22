@@ -1,20 +1,18 @@
+import 'package:excel/excel.dart';
 import 'package:firebase/firebase.dart';
-import 'package:firebase/firestore.dart' as fs;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_webapp/view/topPage_view.dart';
-import 'package:flutter_webapp/view/topPage_viewmodel.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
+import 'dart:math' as math;
+import 'dart:html' as html;
+
+import 'package:flutter_webapp/content_data.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   //ここでFireStoreプロジェクトの設定を行う
   initializeApp(
-    apiKey: "AIzaSyAApo68kXRUXfpgXUgf_oVdGFPHxpXUMSc",
-    //自分のプロジェクトのAPI KEYを設定する
-    authDomain: "moto-blog-flutter.firebaseapp.com",
-    databaseURL: "https://moto-blog-flutter.firebaseio.com",
-    projectId: "moto-blog-flutter",
-    storageBucket: "moto-blog-flutter.appspot.com",
+
   );
 
   runApp(MyApp());
@@ -25,164 +23,237 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Flutter勉強用',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: _MyHomePage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-
-  final String title;
-
+class _MyHomePage extends StatefulWidget {
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  State<StatefulWidget> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  final fs.Firestore store = firestore(); //クライアント作成
-  final List<String> headings = List(); //FireStoreのデータ格納用LIST
-  String _text = 'アンパンマン';
-
-  fetchHeadings() async {
-    //クラウドとの通信なので非同期
-    var messagesRef = await store
-        .collection('headings')
-        .get(); //Firestoreの　users　というcollectionを取得する
-
-    messagesRef.forEach(
-      (doc) {
-        headings.add(doc.id); //ドキュメントをデータ格納用のListに保持する
-      },
-    );
-
-    setState(() {});
-  }
-
-  void _handleText(String e) {
-    setState(() {
-      _text = e;
-    });
-  }
-
-  Widget _viewDialog() {
-    return AlertDialog(
-        title: Text("新規カード名を入力してください"),
-        content: TextField(
-          enabled: true,
-          // 入力数
-          maxLength: 30,
-          maxLengthEnforced: false,
-          style: TextStyle(color: Colors.red),
-          obscureText: false,
-          maxLines: 1,
-          //パスワード
-          onChanged: _handleText,
-        ),
-        actions: <Widget>[
-          FlatButton(
-            child: const Text("add"),
-            onPressed: () async {
-              var m = Map<String, String>();
-              m["comment"] = "sec1";
-              await store.collection('headings').doc(_text).set(m);
-              Navigator.pop(context);
-            },
-          ),
-          FlatButton(
-            child: const Text("no"),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          )
-        ]);
-  }
+class _MyHomePageState extends State<_MyHomePage> {
+  bool isContentShow = false;
+  final ContentData _contentData = ContentData();
+  int fortune, content;
+  int contentSize = 30;
+  int random = math.Random().nextInt(30);
+  List<String> title = [], url = [], imageUrl = [], artist = [];
 
   @override
   void initState() {
     super.initState();
-    fetchHeadings();
+    readExcel();
+  }
+
+  void readExcel() async {
+    ByteData data = await rootBundle.load("assets/Book1.xlsx");
+    var bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    var excel = Excel.decodeBytes(bytes);
+
+    for (var table in excel.tables.keys) {
+      print(table); //sheet Name
+      print(excel.tables[table].maxCols);
+      print(excel.tables[table].maxRows);
+      for (var row in excel.tables[table].rows) {
+        print("$row");
+        title.add(row[0].toString());
+        url.add(row[1].toString());
+        imageUrl.add(row[2].toString());
+        artist.add(row[3].toString());
+      }
+    }
+  }
+
+  void lottery() {
+    var random = math.Random().nextInt(100);
+    if (random >= 0 && 16 >= random) {
+      fortune = 0;
+    }
+    if (random >= 17 && 51 >= random) {
+      fortune = 1;
+    }
+    if (random >= 52 && 56 >= random) {
+      fortune = 2;
+    }
+    if (random >= 57 && 60 >= random) {
+      fortune = 3;
+    }
+    if (random >= 61 && 63 >= random) {
+      fortune = 4;
+    }
+    if (random >= 64 && 69 >= random) {
+      fortune = 5;
+    }
+    if (random >= 70 && 99 >= random) {
+      fortune = 6;
+    }
+    this.random = math.Random().nextInt(contentSize);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text('推し布教おみくじ ver0.2.1'),
+        automaticallyImplyLeading: false,
       ),
-      body: GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 5,
-          crossAxisCount: 3,
-          childAspectRatio: 1,
+      body: Center(
+        child: Container(
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width > 400
+                ? 400
+                : MediaQuery.of(context).size.width,
+            child: Card(
+              elevation: 10,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.lightBlue, width: 3),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      SizedBox(height: 20),
+                      Text('おみくじ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Padding(
+                        padding: EdgeInsets.all(15),
+                        child: Text('運勢の確率は浅草寺のおみくじを参考にしています。\n\n'),
+                      ),
+                      RaisedButton(
+                        color: Colors.lightBlue,
+                        textColor: Colors.white,
+                        child: Text(isContentShow ? 'おみくじを閉じる' : 'おみくじを引く'),
+                        onPressed: () {
+                          setState(() {
+                            isContentShow = !isContentShow;
+                            if (isContentShow) lottery();
+                          });
+                        },
+                      ),
+                      SizedBox(height: 10),
+                      contentWidget(title[random], url[random],
+                          imageUrl[random], artist[random]),
+                      SizedBox(height: 50),
+                      // Padding(
+                      //   padding: EdgeInsets.all(15),
+                      //   child: Text('不具合はこちらまで\n(twitter @sys_moto)\n'),
+                      // ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
-        scrollDirection: Axis.vertical,
-        primary: false,
-        padding: const EdgeInsets.all(10),
-        itemCount: headings.length,
-        itemBuilder: (BuildContext context, int index) {
-          return topPageCard(context, index);
-        },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-              context: context,
-              builder: (context) {
-                return _viewDialog();
-              });
-        },
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), //
     );
   }
 
-  Widget topPageCard(BuildContext buildContext, int index) {
-    return Container(
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChangeNotifierProvider(
-                create: (_) => TopPageViewModel(headings[index]),
-                child: TopPageView(),
-              ),
-            ),
-          );
-        },
-        child: Card(
-          elevation: 2.0,
-          color: Colors.white70,
-          child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              mainAxisSize: MainAxisSize.max,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                SizedBox.fromSize(size: Size.fromHeight(8)),
-                Text(
-                  "　" + "${headings[index]}",
-                  //本当はRawを追加して余白設定するほうが良いけど、面倒なのでSpaceでレイアウトをそろえてる
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 20, color: Colors.black),
-                ),
-                SizedBox.fromSize(size: Size.fromHeight(8)),
-                Text(
-                  "　" + "説明欄",
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Colors.black),
-                ),
-              ]),
-        ),
-      ),
+  Widget contentWidget(
+      String title, String url, String imageUrl, String artist) {
+    return AnimatedContainer(
+      width: isContentShow
+          ? (MediaQuery.of(context).size.width > 400
+              ? 380
+              : MediaQuery.of(context).size.width - 10)
+          : 0,
+      height: isContentShow ? 250.0 : 0,
+      alignment:
+          isContentShow ? Alignment.center : AlignmentDirectional.topCenter,
+      duration: Duration(milliseconds: 300),
+      foregroundDecoration: BoxDecoration(
+          border:
+              Border.all(color: Colors.black26, width: isContentShow ? 1 : 0)),
+      curve: Curves.fastOutSlowIn,
+      child: isContentShow
+          ? SingleChildScrollView(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    SizedBox(height: 10),
+                    Text(
+                      _contentData.fortune[fortune ?? 5],
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 30),
+                    Stack(
+                      children: <Widget>[
+                        Align(
+                          alignment: Alignment.topLeft,
+                          child: Card(
+                            child: Container(
+                              padding: EdgeInsets.fromLTRB(3, 8, 3, 8),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: Colors.lightBlue, width: 1),
+                              ),
+                              child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Container(
+                                      width: isContentShow ? 80 : 0,
+                                      height: isContentShow ? 80 : 0,
+                                      decoration: BoxDecoration(
+                                        image: DecorationImage(
+                                          fit: BoxFit.fill,
+                                          image: NetworkImage(imageUrl),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 5,
+                                    ),
+                                    Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: <Widget>[
+                                          SizedBox(height: 3),
+                                          Text(
+                                            title,
+                                            style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          SizedBox(height: 1),
+                                          Text(
+                                            artist,
+                                            style: TextStyle(fontSize: 15),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ]),
+                                  ]),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom:10,
+                          right: 10,
+                          child: RaisedButton.icon(
+                            color: Colors.white60,
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text("聞く"),
+                            onPressed: () async {
+                              html.window.location.href = url;
+                            },
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                      ],
+                    ),
+                  ]),
+            )
+          : Container(),
     );
   }
 }
